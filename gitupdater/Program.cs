@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Web.Script.Serialization;
 
@@ -13,17 +15,37 @@ namespace gitupdater
         static GitUpdater updater = new GitUpdater("gigajew/GitHubUpdater");
         static void Main(string[] args)
         {
+            // subscribe to event to handle update as you want
+            updater.UpdateInitiated += Updater_UpdateInitiated;
+
+            // prompt update
             if (updater.IsNewVersionAvailable(Global.CurrentAppVersion))
             {
-                updater.Update(Global.CurrentAppVersion );
+                Console.WriteLine("Current version is v{1}. A new version is a available v({0}). Would you like to update now (Y/n)?", updater.LatestVersion, Global.CurrentAppVersion);
+                
+                // perform update
+                updater.Update(Global.CurrentAppVersion);
             }
+        }
+
+        private static void Updater_UpdateInitiated(byte[] asset)
+        {
+            var currentLocation = Assembly.GetEntryAssembly().Location;
+            File.WriteAllBytes(currentLocation, asset);
+            Process.Start(currentLocation);
+            Environment.Exit(0);
         }
     }
 
     public class GitUpdater
     {
+
+        public delegate void UpdateInitiatedDelegate(byte[] asset);
+        public event UpdateInitiatedDelegate UpdateInitiated;
+
         public string Repository { get; protected set; }
         public Version LatestVersion { get; protected set; }
+        public string AssetUrl { get; protected set; }
 
         private JavaScriptSerializer _serializer = new JavaScriptSerializer();
 
@@ -34,16 +56,10 @@ namespace gitupdater
 
         public bool IsNewVersionAvailable(Version currentVersion)
         {
-            HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
-            using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
-            using (Stream responseStream = response.GetResponseStream())
-            using (StreamReader responseStreamReader = new StreamReader(responseStream))
-            {
-                dynamic versionInformation = _serializer.Deserialize<dynamic>(responseStreamReader.ReadToEnd());
-                this.LatestVersion = Version.Parse(versionInformation["tagName"]);
-                return this.LatestVersion >= currentVersion;
-            }
-
+            dynamic versionInformation = DeserializeJson(GetVersionUri());
+            this.LatestVersion = Version.Parse(versionInformation["tag_name"]);
+            this.AssetUrl = versionInformation["assets_url"];
+            return this.LatestVersion >= currentVersion;
         }
 
         public void Update(Version currentVersion)
@@ -52,11 +68,45 @@ namespace gitupdater
                 return;
 
             // proceed updating
+            dynamic updateInformation = DeserializeJson(this.AssetUrl);
+            string binaryLocation = updateInformation["browser_download_url"];
+
+            byte[] asset = DownloadAsset(binaryLocation);
+            UpdateInitiated?.Invoke(asset);
         }
 
         private string GetVersionUri()
         {
-            return string.Format("https://api.github.com/repos/{0}/releases/all", Repository);
+            return string.Format("https://api.github.com/repos/{0}/releases/latest", Repository);
+        }
+
+        private dynamic DeserializeJson(string url)
+        {
+            HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
+            using (Stream responseStream = response.GetResponseStream())
+            using (StreamReader responseStreamReader = new StreamReader(responseStream))
+            {
+                dynamic deserializedData = _serializer.Deserialize<dynamic>(responseStreamReader.ReadToEnd());
+                return deserializedData;
+            }
+        }
+
+        private byte[] DownloadAsset(string url)
+        {
+            HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
+            using (Stream responseStream = response.GetResponseStream())
+            using (MemoryStream memory = new MemoryStream())
+            {
+                byte[] buffer = new byte[8192];
+                int read = 0;
+                while ((read = responseStream.Read(buffer, read, buffer.Length - read)) > 0)
+                {
+                    memory.Write(buffer, 0, read);
+                }
+                return memory.ToArray();
+            }
         }
     }
 
