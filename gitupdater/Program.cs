@@ -71,7 +71,7 @@ namespace gitupdater
 
         public bool IsNewVersionAvailable(Version currentVersion)
         {
-            dynamic versionInformation = DeserializeJson(GetVersionUri());
+            dynamic versionInformation = DeserializeJson<dynamic>(GetVersionUri());
             this.LatestVersion = Version.Parse(versionInformation["tag_name"]);
             this.AssetUrl = versionInformation["assets_url"];
             return this.LatestVersion >= currentVersion;
@@ -83,8 +83,9 @@ namespace gitupdater
                 return;
 
             // proceed updating
-            dynamic updateInformation = DeserializeJson(this.AssetUrl);
-            string binaryLocation = updateInformation["browser_download_url"];
+            dynamic[] updateInformation = DeserializeJson<dynamic[]>(this.AssetUrl);
+            Dictionary<string, dynamic> entry = updateInformation.First();
+            string binaryLocation = entry["browser_download_url"];
 
             byte[] asset = DownloadAsset(binaryLocation);
             UpdateInitiated?.Invoke(asset);
@@ -103,17 +104,17 @@ namespace gitupdater
             _sslEnabled = !_sslEnabled;
         }
 
-        private dynamic DeserializeJson(string url)
+        private T DeserializeJson<T>(string url)
         {
             EnableSsl();
 
-            HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
             request.UserAgent = USER_AGENT;
             using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
             using (Stream responseStream = response.GetResponseStream())
             using (StreamReader responseStreamReader = new StreamReader(responseStream))
             {
-                dynamic deserializedData = _serializer.Deserialize<dynamic>(responseStreamReader.ReadToEnd());
+                T deserializedData = _serializer.Deserialize<T>(responseStreamReader.ReadToEnd());
                 return deserializedData;
             }
         }
@@ -122,7 +123,7 @@ namespace gitupdater
         {
             EnableSsl();
 
-            HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
             request.UserAgent = USER_AGENT;
             using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
             using (Stream responseStream = response.GetResponseStream())
