@@ -145,7 +145,7 @@ namespace gitupdater
 
     public static class Global
     {
-        public static Version CurrentAppVersion { get; private set; } = new Version(1, 0);
+        public static Version CurrentAppVersion { get; private set; } = new Version(1, 3);
         public static string Repository { get; private set; } = "gigajew/GitHubUpdater";
     }
 }
