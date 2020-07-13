@@ -22,10 +22,25 @@ namespace gitupdater
             if (updater.IsNewVersionAvailable(Global.CurrentAppVersion))
             {
                 Console.WriteLine("Current version is v{1}. A new version is a available v({0}). Would you like to update now (Y/n)?", updater.LatestVersion, Global.CurrentAppVersion);
+          
+                // read response
+                var response = Console.ReadKey();
+                Console.WriteLine();
+
+                if(response.Key == ConsoleKey.Y )
+                {
+                    // perform update
+                    updater.Update(Global.CurrentAppVersion);
+                } else
+                {
+                    Console.WriteLine("Skipped update");
+                }
                 
-                // perform update
-                updater.Update(Global.CurrentAppVersion);
             }
+
+            // do program logic
+            Console.WriteLine("Hello, world");
+            Console.ReadLine();
         }
 
         private static void Updater_UpdateInitiated(byte[] asset)
@@ -80,9 +95,20 @@ namespace gitupdater
             return string.Format("https://api.github.com/repos/{0}/releases/latest", Repository);
         }
 
+        private void EnableSsl()
+        {
+            if (_sslEnabled) return;
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
+            _sslEnabled = !_sslEnabled;
+        }
+
         private dynamic DeserializeJson(string url)
         {
+            EnableSsl();
+
             HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            request.UserAgent = USER_AGENT;
             using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
             using (Stream responseStream = response.GetResponseStream())
             using (StreamReader responseStreamReader = new StreamReader(responseStream))
@@ -94,7 +120,10 @@ namespace gitupdater
 
         private byte[] DownloadAsset(string url)
         {
+            EnableSsl();
+
             HttpWebRequest request = WebRequest.Create(GetVersionUri()) as HttpWebRequest;
+            request.UserAgent = USER_AGENT;
             using (HttpWebResponse response = request.GetResponse() as HttpWebResponse)
             using (Stream responseStream = response.GetResponseStream())
             using (MemoryStream memory = new MemoryStream())
@@ -108,6 +137,9 @@ namespace gitupdater
                 return memory.ToArray();
             }
         }
+
+        private bool _sslEnabled;
+        private const string USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0";
     }
 
     public static class Global
