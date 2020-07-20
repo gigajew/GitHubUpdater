@@ -26,8 +26,10 @@ Subscribe to the UpdateInitiated event that provides your release artifact in a 
 ```c#
 	// subscribe to event to handle update as you want
 	updater.UpdateInitiated += (rawArtifactData) => {
-		File.WriteAllBytes(Assembly.GetEntryAssembly().Location, rawArtifactData);
-		Application.Restart();
+		var currentLocation = Assembly.GetEntryAssembly().Location;
+		var archiveLocation = Assembly.GetEntryAssembly().Location + ".old";
+		File.Move(currentLocation, archiveLocation);
+		File.WriteAllBytes(currentLocation, asset);
 	};
 ```
 
