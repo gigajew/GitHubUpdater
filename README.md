@@ -1,6 +1,11 @@
 # GitHubUpdater
 Update your app using GitHub releases
 
+# Donate
+Donations: bitcoin:12FP1JisjYCsgfteTLMQQMLnVBs65wZD8G
+
+# Usage 
+
 Push updates in the /releases section of your repository and let users update the app at their conveniance of their desktop. Add a tag to each release specifying version number and make sure you update the version number in your app.
 
 Describe the current app version and repository name of your app
